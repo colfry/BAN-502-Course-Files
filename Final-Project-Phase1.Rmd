@@ -1,0 +1,344 @@
+---
+title: "Final Project - Phase 1"
+author: "Colby Fry"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading libraries and importing dataset
+```{r, Load Libraries & Datasets}
+library(tidyverse)
+library(mice)
+library(VIM)
+library(UpSetR)
+library(naniar)
+library(tidymodels)
+library(glmnet)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(caret)
+
+train_csv <- read_csv("train.csv")
+
+```
+## Factor Conversions in the Train Dataset
+```{r Factor Conversion & Cleaning}
+train_csv <- train_csv %>%
+  mutate(attribute_0 = as_factor(attribute_0)) %>%
+  mutate(attribute_1 = as_factor(attribute_1)) %>%
+  mutate(attribute_2 = as_factor(attribute_2)) %>%
+  mutate(attribute_2 = fct_recode(attribute_2, "material_5" = "5", "material_8" = "8", "material_6" = "6", "material_9" = "9")) %>%
+  mutate(attribute_3 = as_factor(attribute_3)) %>%
+  mutate(attribute_3 = fct_recode(attribute_3, "material_5" = "5", "material_8" = "8", "material_6" = "6", "material_9" = "9")) %>%
+  mutate(product_code = as_factor(product_code)) %>%
+  mutate(failure = as_factor(failure)) %>%
+  mutate(failure = fct_recode(failure, "0" = "No", "1" = "Yes")) 
+
+summary(train_csv)
+
+```
+
+## Visualizing Missingness
+
+```{r Missingness Visualization}
+gg_miss_var(train_csv)
+```
+
+## Outlier detection
+
+```{r}
+ggplot(train_csv, aes(x=loading)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_0)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_1)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_2)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_3)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_4)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_5)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_6)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_7)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_8)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_9)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_10)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_11)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_12)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_13)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_14)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_15)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_16)) + geom_histogram()
+
+ggplot(train_csv, aes(x=measurement_17)) + geom_histogram()
+
+```
+
+
+## Imputation of new data into Train
+
+```{r Imputation using mice, into train}
+set.seed(123456)
+impu_measures <- mice(train_csv, m = 5, method = 'pmm', printFlag = FALSE)
+summary(impu_measures)
+```
+## Sample density plot post-imputation, using the "loading" variable
+
+```{r Visualize Before & After - Imputations, using loading as an example}
+densityplot(impu_measures, ~loading)
+```
+
+## Merging the newly imputed data into the original Train dataset
+### Summary Statistics
+```{r Merging imputed values with the original dataset}
+train_new <- complete(impu_measures)
+summary(train_new)
+```
+## Categorical Variable Distribution Visualizations
+
+```{r Categorical Dist Viz}
+ggplot(train_new, aes(x = product_code, fill = factor(failure))) + 
+  geom_bar(position = "fill") + 
+  theme_minimal() + 
+  labs(title = "product_code by Failure Status")
+
+ggplot(train_new, aes(x = attribute_0, fill = factor(failure))) + 
+  geom_bar(position = "fill") + 
+  theme_minimal() + 
+  labs(title = "attribute_0 by Failure Status")
+
+ggplot(train_new, aes(x = attribute_1, fill = factor(failure))) + 
+  geom_bar(position = "fill") + 
+  theme_minimal() + 
+  labs(title = "attribute_1 by Failure Status")
+
+ggplot(train_new, aes(x = attribute_2, fill = factor(failure))) + 
+  geom_bar(position = "fill") + 
+  theme_minimal() + 
+  labs(title = "attribute_2 by Failure Status")
+
+ggplot(train_new, aes(x = attribute_3, fill = factor(failure))) + 
+  geom_bar(position = "fill") + 
+  theme_minimal() + 
+  labs(title = "attribute_3 by Failure Status")
+```
+
+
+
+## Numerical Variable Distribution Visualizations
+
+
+```{r Visualizing Distribution of Numerical Variables}
+ggplot(train_new, aes(x = factor(failure), y = loading, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "loading by Failure Status")
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_0, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "measurement_8 by Failure Status")
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_1, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "loading by Failure Status")
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_2, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "measurement_8 by Failure Status")
+
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_3, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "loading by Failure Status")
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_4, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "measurement_8 by Failure Status")
+
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_5, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "loading by Failure Status")
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_6, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "measurement_8 by Failure Status")
+
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_7, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "loading by Failure Status")
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_8, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "measurement_8 by Failure Status")
+
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_9, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "loading by Failure Status")
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_10, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "measurement_8 by Failure Status")
+
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_11, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "loading by Failure Status")
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_12, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "measurement_8 by Failure Status")
+
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_13, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "loading by Failure Status")
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_14, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "measurement_8 by Failure Status")
+
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_15, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "loading by Failure Status")
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_16, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "measurement_8 by Failure Status")
+
+ggplot(train_new, aes(x = factor(failure), y = measurement_17, fill = factor(failure))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "measurement_8 by Failure Status")
+```
+
+#Modeling
+
+## Logistic Regression
+
+```{r}
+set.seed(123) 
+train_split = initial_split(train_new, prop = 0.70, strata = failure)
+train = training(train_split)
+test = testing(train_split)
+```
+
+### Numerical Relationships - Train Split
+```{r}
+ggplot(train,aes(x=failure, y=loading)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_0)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_1)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_2)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_3)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_4)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_5)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_6)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_7)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_8)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_9)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_10)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_11)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_12)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_13)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_14)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_15)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_16)) + geom_boxplot() + 
+  theme_bw()
+
+ggplot(train,aes(x=failure, y=measurement_17)) + geom_boxplot() + 
+  theme_bw()
+```
+
+## First Logistic Regression Model
+```{r}
+traincsv_model = 
+  logistic_reg(mode = "classification") %>% 
+  set_engine("glm")
+
+traincsv_recipe = recipe(failure ~., train)
+
+logreg_wf = workflow() %>%
+  add_recipe(traincsv_recipe) %>% 
+  add_model(traincsv_model)
+
+traincsv_fit = fit(logreg_wf, train)
+
+options(scipen = 999)
+summary(traincsv_fit$fit$fit$fit)
+options(scipen = 0)
+```
+
